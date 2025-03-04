@@ -13,11 +13,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v2
 
-      - name: Set up SSH key
+      - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_KEY }}" > ~/.ssh/id_rsa
+          echo "${{ secrets.EC2_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
       - name: Add remote server to known_hosts
         run: |
@@ -34,11 +35,11 @@ jobs:
           docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/nodejs-basic-service:latest .
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/nodejs-basic-service:latest
 
-      - name: Deploy to Remote Server
+      - name: Deploy to EC2
         run: |
-          ssh -o StrictHostKeyChecking=no ${{ secrets.REMOTE_USER }}@${{ secrets.REMOTE_HOST }} << 'EOF'
-          docker pull ${{ secrets.DOCKERHUB_USERNAME }}/nodejs-basic-service:latest
-          docker stop nodejs-service || true
-          docker rm nodejs-service || true
-          docker run -d --name nodejs-service -p 3000:3000 ${{ secrets.DOCKERHUB_USERNAME }}/nodejs-basic-service:latest
+          ssh -i ~/.ssh/id_rsa ec2-user@${{ secrets.EC2_HOST }} << 'EOF'
+          docker pull mydockerhubuser/shopapp:latest
+          docker stop shopapp || true
+          docker rm shopapp || true
+          docker run -d -p 80:3000 --name shopapp mydockerhubuser/shopapp:latest
           EOF
